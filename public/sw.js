@@ -2,8 +2,8 @@
 // stale-while-revalidate strategy for same-origin GET requests. Application data itself is
 // stored in IndexedDB (see lib/data/localDb.ts), not here — this only caches the shell.
 
-const CACHE_NAME = "nithish-fit-shell-v1";
-const APP_SHELL = ["/today", "/workout", "/food", "/progress", "/more", "/manifest.webmanifest"];
+const CACHE_NAME = "nithish-fit-shell-v2";
+const APP_SHELL = ["/today", "/workout", "/food", "/progress", "/more"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -28,8 +28,17 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  // Never cache API/data calls — only navigation and static app-shell assets.
-  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/_next/data/")) return;
+  // Never cache API/data calls, or the manifest/icons — those must always reflect the
+  // current deployment (e.g. app icon changes), and the browser's install/update flow reads
+  // them directly rather than benefiting from offline app-shell caching.
+  if (
+    url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/_next/data/") ||
+    url.pathname === "/manifest.webmanifest" ||
+    url.pathname.startsWith("/icons/")
+  ) {
+    return;
+  }
 
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {

@@ -2,7 +2,7 @@
 // stale-while-revalidate strategy for same-origin GET requests. Application data itself is
 // stored in IndexedDB (see lib/data/localDb.ts), not here — this only caches the shell.
 
-const CACHE_NAME = "nithish-fit-shell-v2";
+const CACHE_NAME = "nithish-fit-shell-v3";
 const APP_SHELL = ["/today", "/workout", "/food", "/progress", "/more"];
 
 self.addEventListener("install", (event) => {

@@ -3,6 +3,7 @@ import type {
   ApplicationSetting,
   AvailableWeightIncrement,
   BodyMeasurement,
+  DailyEnergyLog,
   Equipment,
   Exercise,
   ExerciseAlias,
@@ -61,6 +62,7 @@ export interface NithishFitDB extends DBSchema {
   mealPlanDays: { key: string; value: MealPlanDay };
   plannedMeals: { key: string; value: PlannedMeal };
   supplementLogs: { key: string; value: SupplementLog };
+  dailyEnergyLogs: { key: string; value: DailyEnergyLog };
 }
 
 export type StoreName = StoreNames<NithishFitDB>;
@@ -95,10 +97,11 @@ const STORE_NAMES: StoreName[] = [
   "mealPlanDays",
   "plannedMeals",
   "supplementLogs",
+  "dailyEnergyLogs",
 ];
 
 const DB_NAME = "nithish-fit";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBPDatabase<NithishFitDB>> | null = null;
 

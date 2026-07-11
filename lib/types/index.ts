@@ -9,3 +9,4 @@ export * from "./nutrition";
 export * from "./mealplan";
 export * from "./supplement";
 export * from "./settings";
+export * from "./health";

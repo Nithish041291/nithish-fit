@@ -15,7 +15,7 @@ import { formatDateLong, formatWeekdayLabel, titleCase, weekdayOf } from "@/lib/
 import { sevenDayMovingAverage, weeklyRateOfChange, isLossRateExcessive } from "@/lib/calc/movingAverage";
 import { calculateNutritionAdherencePercent, calculateWorkoutCompletionPercent } from "@/lib/workout/adherence";
 import { resolveTodaysWorkoutDay } from "@/lib/workout/today";
-import { AlertTriangle, Dumbbell, Salad, Scale, CalendarDays } from "lucide-react";
+import { AlertTriangle, Dumbbell, Salad, Scale, CalendarDays, Watch } from "lucide-react";
 
 export default function TodayPage() {
   const date = todayIsoDate();
@@ -34,6 +34,7 @@ export default function TodayPage() {
     return programme ? p.listWorkoutDays(programme.id) : [];
   }, [programmeState.data?.id]);
   const waterState = useProviderData((p) => p.getSetting(`water:${date}`));
+  const energyLogsState = useProviderData((p) => p.listDailyEnergyLogs({ from: date, to: date }));
 
   const loading =
     profileState.loading || targetState.loading || foodLogsTodayState.loading || bodyMeasurementsState.loading || sessionsState.loading || workoutDaysState.loading;
@@ -91,6 +92,8 @@ export default function TodayPage() {
   const supplements = supplementLogsState.data ?? [];
   const creatineLog = supplements.find((s) => s.type === "creatine") ?? null;
   const wheyLog = supplements.find((s) => s.type === "whey") ?? null;
+
+  const todaysEnergyLog = (energyLogsState.data ?? []).find((e) => e.date === date) ?? null;
 
   return (
     <div className="space-y-4">
@@ -194,6 +197,22 @@ export default function TodayPage() {
       />
 
       <WeightSummaryCard currentWeightKg={currentWeight} sevenDayAverageKg={sevenDayAvg} weeklyRateKgPerWeek={weeklyRate} targetWeightKg={profile.targetWeightKg} />
+
+      {todaysEnergyLog && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground font-normal flex items-center gap-1.5">
+              <Watch className="size-4" /> Active energy (Apple Watch)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xl font-semibold tabular-nums">{Math.round(todaysEnergyLog.activeEnergyKcal)} kcal</p>
+            {todaysEnergyLog.restingEnergyKcal !== null && (
+              <p className="text-xs text-muted-foreground">+{Math.round(todaysEnergyLog.restingEnergyKcal)} kcal resting</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <Card>

@@ -3,6 +3,7 @@ import type {
   ApplicationSetting,
   AvailableWeightIncrement,
   BodyMeasurement,
+  DailyEnergyLog,
   Equipment,
   Exercise,
   ExerciseAlias,
@@ -324,6 +325,11 @@ export class DemoDataProvider implements DataProvider {
     await db.put("supplementLogs", entry);
   }
 
+  async listDailyEnergyLogs(range?: DateRange): Promise<DailyEnergyLog[]> {
+    const all = await db.getAll("dailyEnergyLogs");
+    return all.filter((e) => inDateRange(e.date, range)).sort((a, b) => (a.date < b.date ? -1 : 1));
+  }
+
   async getSetting(key: string): Promise<string | null> {
     const all = await db.getAll("applicationSettings");
     return all.find((s) => s.key === key)?.value ?? null;
@@ -359,6 +365,7 @@ export class DemoDataProvider implements DataProvider {
       plannedMeals,
       supplementLogs,
       customFoodItems,
+      dailyEnergyLogs,
     ] = await Promise.all([
       db.getAll("userProfiles"),
       db.getAll("userPreferences"),
@@ -382,6 +389,7 @@ export class DemoDataProvider implements DataProvider {
       db.getAll("plannedMeals"),
       db.getAll("supplementLogs"),
       db.getAll("foodItems").then((items) => items.filter((i) => i.isCustom)),
+      db.getAll("dailyEnergyLogs"),
     ]);
     return {
       exportedAt: new Date().toISOString(),
@@ -407,6 +415,7 @@ export class DemoDataProvider implements DataProvider {
       plannedMeals,
       supplementLogs,
       customFoodItems,
+      dailyEnergyLogs,
     };
   }
 
@@ -433,6 +442,7 @@ export class DemoDataProvider implements DataProvider {
       "mealPlanDays",
       "plannedMeals",
       "supplementLogs",
+      "dailyEnergyLogs",
       "applicationSettings",
     ] as const;
     await Promise.all(userStores.map((s) => db.clearStore(s)));

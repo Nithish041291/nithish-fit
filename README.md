@@ -88,6 +88,50 @@ across devices instead of living only in one browser.
 If either `NEXT_PUBLIC_SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_ANON_KEY` is missing, the
 app always falls back to local demo mode rather than failing to start.
 
+## Apple Watch calorie sync (optional)
+
+The browser can't read HealthKit data directly — Apple only exposes it to native apps, never
+to web pages, even installed PWAs. The supported bridge is the
+[Health Auto Export](https://apps.apple.com/app/health-auto-export-json-csv/id1115567069) iOS
+app, which reads Health data on-device and can POST it to a custom URL on a schedule. This app
+exposes `POST /api/health-import` to receive that data as daily active/resting calorie-burn
+totals, shown on the Today screen.
+
+Requires Supabase mode (not available in local demo mode, since it needs a real server-side
+database to write into).
+
+1. In the Supabase dashboard, go to **Authentication → Users**, find your account, and copy
+   its **User UID**.
+2. In Vercel, add three environment variables (Project Settings → Environment Variables):
+   - `SUPABASE_SERVICE_ROLE_KEY` — from Supabase **Settings → API** (the `service_role` /
+     `sb_secret_...` key — keep this secret, it bypasses row-level security).
+   - `HEALTH_IMPORT_USER_ID` — the User UID from step 1.
+   - `HEALTH_IMPORT_SECRET` — any long random string you generate yourself; this is the
+     bearer token the iOS app must send.
+3. Redeploy (env var changes require a rebuild).
+4. Apply `supabase/migrations/0013_daily_energy.sql` to your project (SQL Editor, or
+   `supabase db push` if you're tracking migrations via the CLI).
+5. In Health Auto Export, create a new **REST API** automation:
+   - URL: `https://<your-app>.vercel.app/api/health-import`
+   - Method: `POST`
+   - Header: `Authorization: Bearer <HEALTH_IMPORT_SECRET from step 2>`
+   - Metrics to include: **Active Energy** and **Resting Energy** (aka Basal Energy Burned)
+   - Aggregation: hourly or daily both work — the endpoint sums everything per calendar day
+     itself.
+   - Schedule: e.g. hourly, or "on app open" / whenever your Watch syncs.
+
+Verify it's working with a manual test request (replace the placeholders):
+
+```bash
+curl -X POST "https://<your-app>.vercel.app/api/health-import" \
+  -H "Authorization: Bearer <HEALTH_IMPORT_SECRET>" \
+  -H "Content-Type: application/json" \
+  -d '{"data":{"metrics":[{"name":"active_energy","units":"kcal","data":[{"date":"2026-07-11 08:00:00 +0000","qty":250}]}]}}'
+```
+
+A `{"imported":1,"dates":["2026-07-11"]}` response means it wrote successfully — refresh the
+Today screen to see it.
+
 ## Commands
 
 | Command | What it does |

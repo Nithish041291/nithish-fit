@@ -1,6 +1,7 @@
 import type {
   AvailableWeightIncrement,
   BodyMeasurement,
+  DailyEnergyLog,
   Equipment,
   Exercise,
   ExerciseAlias,
@@ -121,6 +122,10 @@ export interface DataProvider {
 
   listSupplementLogs(range?: DateRange): Promise<SupplementLog[]>;
   saveSupplementLog(entry: SupplementLog): Promise<void>;
+
+  /** Wearable calorie-burn sync (Apple Watch via Health Auto Export). Written server-side by
+   * the /api/health-import route with the service-role key — not writable from the browser. */
+  listDailyEnergyLogs(range?: DateRange): Promise<DailyEnergyLog[]>;
 
   getSetting(key: string): Promise<string | null>;
   setSetting(key: string, value: string): Promise<void>;

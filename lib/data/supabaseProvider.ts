@@ -3,6 +3,7 @@ import type {
   ApplicationSetting,
   AvailableWeightIncrement,
   BodyMeasurement,
+  DailyEnergyLog,
   Equipment,
   Exercise,
   ExerciseAlias,
@@ -341,6 +342,16 @@ export class SupabaseDataProvider implements DataProvider {
     await this.upsertRow("supplement_logs", entry as unknown as Record<string, unknown>);
   }
 
+  async listDailyEnergyLogs(range?: DateRange): Promise<DailyEnergyLog[]> {
+    const uid = await this.userId();
+    return this.selectAll<DailyEnergyLog>("daily_energy_logs", (q) => {
+      let query = q.eq("user_id", uid);
+      if (range?.from) query = query.gte("date", range.from);
+      if (range?.to) query = query.lte("date", range.to);
+      return query.order("date") as typeof q;
+    });
+  }
+
   async getSetting(key: string): Promise<string | null> {
     const uid = await this.userId();
     const rows = await this.selectAll<ApplicationSetting>("application_settings", (q) => q.eq("user_id", uid).eq("key", key) as typeof q);
@@ -363,6 +374,7 @@ export class SupabaseDataProvider implements DataProvider {
       foodLogs,
       mealPlans,
       supplementLogs,
+      dailyEnergyLogs,
     ] = await Promise.all([
       this.getProfile(),
       this.getPreferences(),
@@ -374,6 +386,7 @@ export class SupabaseDataProvider implements DataProvider {
       this.listFoodLogs(),
       this.listMealPlans(),
       this.listSupplementLogs(),
+      this.listDailyEnergyLogs(),
     ]);
     return {
       exportedAt: new Date().toISOString(),
@@ -387,6 +400,7 @@ export class SupabaseDataProvider implements DataProvider {
       foodLogs,
       mealPlans,
       supplementLogs,
+      dailyEnergyLogs,
     };
   }
 
@@ -401,6 +415,7 @@ export class SupabaseDataProvider implements DataProvider {
       "food_logs",
       "meal_plans",
       "supplement_logs",
+      "daily_energy_logs",
       "readiness_entries",
       "user_equipment",
       "available_weight_increments",

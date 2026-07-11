@@ -66,10 +66,25 @@ export async function replayOutbox(provider: DataProvider): Promise<{ succeeded:
   return { succeeded, failed };
 }
 
+/** True for browser network-level failures (fetch couldn't even reach the server) — the
+ * only case worth queuing for retry. Deliberately does NOT trust `navigator.onLine`: it's
+ * unreliable in installed PWAs (notably iOS Safari standalone mode often reports `false`
+ * while genuinely online), so pre-emptively queuing on that flag alone silently dropped
+ * writes and returned `undefined` to callers expecting a real record back. */
+function isNetworkError(err: unknown): boolean {
+  if (err instanceof TypeError) return /fetch|network/i.test(err.message);
+  if (err && typeof err === "object" && "message" in err) {
+    return /failed to fetch|network|load failed/i.test(String((err as { message: unknown }).message));
+  }
+  return false;
+}
+
 /**
- * Wraps a DataProvider so that write calls made while offline are queued in IndexedDB
- * instead of failing outright, and can be replayed once connectivity returns. Read calls
- * and online writes pass straight through to the underlying provider.
+ * Wraps a DataProvider so that write calls that genuinely fail to reach the network are
+ * queued in IndexedDB instead of losing the user's data, and get replayed once
+ * connectivity returns. Every call either returns the real result or throws — it never
+ * silently returns `undefined`, since callers (e.g. session/readiness flows) rely on the
+ * returned record. Read calls and successful writes pass straight through unchanged.
  */
 export function withOfflineQueue(provider: DataProvider): DataProvider {
   return new Proxy(provider, {
@@ -79,16 +94,14 @@ export function withOfflineQueue(provider: DataProvider): DataProvider {
         return value;
       }
       return async (...args: unknown[]) => {
-        if (typeof navigator !== "undefined" && !navigator.onLine) {
-          await enqueueOutboxEntry(prop, args);
-          return undefined;
-        }
         try {
           return await (value as (...a: unknown[]) => unknown).apply(target, args);
         } catch (err) {
-          // Treat a failed write as possibly-offline (e.g. request timed out) and queue it
-          // rather than losing the user's workout/food log entry.
-          await enqueueOutboxEntry(prop, args);
+          if (isNetworkError(err)) {
+            await enqueueOutboxEntry(prop, args);
+          }
+          // Always rethrow — the caller must know this write did not durably succeed yet,
+          // even though a network-error case has also been queued for later retry.
           throw err;
         }
       };

@@ -8,17 +8,16 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Sparkles } from "lucide-react";
-import { useData } from "@/lib/data/context";
+import { useDataContext } from "@/lib/data/context";
 import { useProviderData } from "@/lib/data/hooks";
 import { generateMealPlan, type FoodIndexItem } from "@/lib/mealplan/generate";
 import { defaultMealPlanPreferences } from "@/db/seed/mealPlanPreferences";
-import { DEMO_USER_ID } from "@/lib/data/demoProvider";
 import { formatDateLong, titleCase } from "@/lib/format";
 import type { MealPlanPreference } from "@/lib/types";
 import { toast } from "sonner";
 
 export default function MealPlanPage() {
-  const provider = useData();
+  const { provider, user } = useDataContext();
   const [preferences, setPreferences] = useState<MealPlanPreference>(defaultMealPlanPreferences);
   const [generating, setGenerating] = useState(false);
 
@@ -43,7 +42,7 @@ export default function MealPlanPage() {
   }, [daysState.data, provider]);
 
   async function regenerate() {
-    if (!targetState.data) return;
+    if (!targetState.data || !user) return;
     setGenerating(true);
     try {
       const foodIndex: Record<string, FoodIndexItem> = {};
@@ -51,7 +50,7 @@ export default function MealPlanPage() {
         foodIndex[f.slug] = { id: f.id, caloriesPer100g: f.caloriesPer100g, proteinPer100g: f.proteinPer100g, carbsPer100g: f.carbsPer100g, fatPer100g: f.fatPer100g, fibrePer100g: f.fibrePer100g };
       }
       const { mealPlan, days, meals } = generateMealPlan({
-        userId: DEMO_USER_ID,
+        userId: user.id,
         startDate: new Date().toISOString().slice(0, 10),
         preferences,
         targetCalories: targetState.data.calorieTargetKcal,
@@ -66,6 +65,8 @@ export default function MealPlanPage() {
       setMealsByDay({});
       mealPlansState.refetch();
       toast.success("7-day meal plan generated");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not generate meal plan");
     } finally {
       setGenerating(false);
     }

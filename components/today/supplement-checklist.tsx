@@ -4,9 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { generateId } from "@/lib/calc/id";
-import { useData } from "@/lib/data/context";
-import { DEMO_USER_ID } from "@/lib/data/demoProvider";
+import { useDataContext } from "@/lib/data/context";
 import type { SupplementLog } from "@/lib/types";
+import { toast } from "sonner";
 
 export interface SupplementChecklistProps {
   date: string;
@@ -19,14 +19,19 @@ export interface SupplementChecklistProps {
 }
 
 export function SupplementChecklist({ date, creatineLog, wheyLog, creatineGrams, wheyScoops, isTrainingDay, onChange }: SupplementChecklistProps) {
-  const provider = useData();
+  const { provider, user } = useDataContext();
 
   async function toggle(existing: SupplementLog | null, type: "creatine" | "whey", amount: string) {
+    if (!user) return;
     const next: SupplementLog = existing
       ? { ...existing, taken: !existing.taken, takenAt: !existing.taken ? new Date().toISOString() : null }
-      : { id: generateId(), userId: DEMO_USER_ID, date, type, amount, taken: true, takenAt: new Date().toISOString() };
-    await provider.saveSupplementLog(next);
-    onChange();
+      : { id: generateId(), userId: user.id, date, type, amount, taken: true, takenAt: new Date().toISOString() };
+    try {
+      await provider.saveSupplementLog(next);
+      onChange();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save supplement log");
+    }
   }
 
   if (creatineGrams <= 0 && (!isTrainingDay || wheyScoops <= 0)) return null;

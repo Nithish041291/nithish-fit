@@ -1,18 +1,18 @@
 import { generateId } from "@/lib/calc/id";
 import type { DataProvider } from "@/lib/data/provider";
-import { DEMO_USER_ID } from "@/lib/data/demoProvider";
 import type { WorkoutDay } from "@/lib/types";
 import { evaluateDeloadStatus } from "./deloadStatus";
 import { buildSuggestion, type ExerciseHistoryEntry } from "./suggestion";
 
 export async function startWorkoutSession(params: {
   provider: DataProvider;
+  userId: string;
   workoutDay: WorkoutDay | null;
   label: string;
   date: string;
   readinessEntryId: string | null;
 }): Promise<string> {
-  const { provider, workoutDay, label, date, readinessEntryId } = params;
+  const { provider, userId, workoutDay, label, date, readinessEntryId } = params;
 
   const [programme, increments, allSessions] = await Promise.all([
     provider.getActiveProgramme(),
@@ -27,7 +27,7 @@ export async function startWorkoutSession(params: {
 
   const session = await provider.saveSession({
     id: generateId(),
-    userId: DEMO_USER_ID,
+    userId,
     programmeId: programme?.id ?? null,
     workoutDayId: workoutDay?.id ?? null,
     label,

@@ -9,11 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useData } from "@/lib/data/context";
+import { useDataContext } from "@/lib/data/context";
 import { useProviderData } from "@/lib/data/hooks";
 import { generateId } from "@/lib/calc/id";
 import { calculateRecipeNutrients } from "@/lib/calc/recipe";
-import { DEMO_USER_ID } from "@/lib/data/demoProvider";
 import type { FoodItem, FoodLog, Recipe, RecipeIngredient } from "@/lib/types";
 import { toast } from "sonner";
 import { inferMealSlotFromTime } from "@/lib/food-parser/mealSlotFromTime";
@@ -30,7 +29,7 @@ interface IngredientRow {
 export default function RecipeEditorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const isNew = id === "new";
-  const provider = useData();
+  const { provider, user } = useDataContext();
   const router = useRouter();
 
   const foodItemsState = useProviderData((p) => p.listFoodItems());
@@ -75,7 +74,7 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ id: str
     };
   }, [isNew, initialized, recipeState.data, existingIngredientsState.data, foodItemsState.data]);
 
-  if ((!isNew && (recipeState.loading || existingIngredientsState.loading || !initialized)) || foodItemsState.loading) {
+  if ((!isNew && (recipeState.loading || existingIngredientsState.loading || !initialized)) || foodItemsState.loading || !user) {
     return <Skeleton className="h-96 w-full" />;
   }
 
@@ -123,11 +122,12 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ id: str
       toast.error("Add a name and at least one matched ingredient.");
       return;
     }
+    if (!user) return;
     const recipeId = isNew ? generateId() : id;
     const now = new Date().toISOString();
     const recipe: Recipe = {
       id: recipeId,
-      userId: DEMO_USER_ID,
+      userId: user.id,
       name,
       cuisineTag: "home",
       totalCookedWeightGrams: totalWeight,
@@ -137,26 +137,30 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ id: str
       createdAt: recipeState.data?.createdAt ?? now,
       updatedAt: now,
     };
-    await provider.saveRecipe(recipe);
+    try {
+      await provider.saveRecipe(recipe);
 
-    if (!isNew) {
-      for (const existing of existingIngredientsState.data ?? []) {
-        if (!ingredients.some((row) => row.existingId === existing.id)) {
-          await provider.deleteRecipeIngredient(existing.id);
+      if (!isNew) {
+        for (const existing of existingIngredientsState.data ?? []) {
+          if (!ingredients.some((row) => row.existingId === existing.id)) {
+            await provider.deleteRecipeIngredient(existing.id);
+          }
         }
       }
+      for (const { row, food } of resolvedIngredients) {
+        const ingredient: RecipeIngredient = {
+          id: row.existingId ?? generateId(),
+          recipeId,
+          foodItemId: food.id,
+          quantityGrams: row.quantityGrams,
+        };
+        await provider.saveRecipeIngredient(ingredient);
+      }
+      toast.success("Recipe saved");
+      router.push(`/more/recipes/${recipeId}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save recipe");
     }
-    for (const { row, food } of resolvedIngredients) {
-      const ingredient: RecipeIngredient = {
-        id: row.existingId ?? generateId(),
-        recipeId,
-        foodItemId: food.id,
-        quantityGrams: row.quantityGrams,
-      };
-      await provider.saveRecipeIngredient(ingredient);
-    }
-    toast.success("Recipe saved");
-    router.push(`/more/recipes/${recipeId}`);
   }
 
   async function remove() {
@@ -166,11 +170,11 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ id: str
   }
 
   async function logOneServing() {
-    if (isNew) return;
+    if (isNew || !user) return;
     const perServingGrams = Math.round(totalWeight / Math.max(1, servings));
     const log: FoodLog = {
       id: generateId(),
-      userId: DEMO_USER_ID,
+      userId: user.id,
       date: todayIsoDate(),
       loggedAt: new Date().toISOString(),
       rawText: `1 serving ${name}`,
@@ -191,8 +195,12 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ id: str
       wasEdited: false,
       createdAt: new Date().toISOString(),
     };
-    await provider.saveFoodLog(log);
-    toast.success("Logged 1 serving to today's food log");
+    try {
+      await provider.saveFoodLog(log);
+      toast.success("Logged 1 serving to today's food log");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not log this recipe");
+    }
   }
 
   return (

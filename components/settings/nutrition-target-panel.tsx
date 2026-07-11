@@ -11,8 +11,7 @@ import { calculateBMR } from "@/lib/calc/bmr";
 import { calculateMacroTargets } from "@/lib/calc/macros";
 import type { ActivityLevel } from "@/lib/calc/types";
 import { generateId } from "@/lib/calc/id";
-import { useData } from "@/lib/data/context";
-import { DEMO_USER_ID } from "@/lib/data/demoProvider";
+import { useDataContext } from "@/lib/data/context";
 import type { NutritionTarget, UserPreference, UserProfile } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -27,7 +26,7 @@ export function NutritionTargetPanel({
   activeTarget: NutritionTarget | null;
   onSaved: () => void;
 }) {
-  const provider = useData();
+  const { provider, user } = useDataContext();
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>(preferences.activityLevel);
   const [deficitPercent, setDeficitPercent] = useState(preferences.calorieDeficitPercent);
   const [proteinPerKg, setProteinPerKg] = useState(preferences.proteinGramsPerKg);
@@ -47,28 +46,33 @@ export function NutritionTargetPanel({
   });
 
   async function apply() {
-    await provider.updatePreferences({ activityLevel, calorieDeficitPercent: deficitPercent, proteinGramsPerKg: proteinPerKg, fatGramsPerKgTarget: fatPerKg });
-    const newTarget: NutritionTarget = {
-      id: generateId(),
-      userId: DEMO_USER_ID,
-      effectiveFrom: new Date().toISOString().slice(0, 10),
-      bmrKcal: bmr,
-      activityLevel,
-      activityMultiplier: preview.maintenanceKcal / bmr,
-      maintenanceKcal: preview.maintenanceKcal,
-      deficitPercent,
-      calorieTargetKcal: preview.calorieTargetKcal,
-      proteinTargetG: preview.proteinG,
-      fatTargetG: preview.fatG,
-      carbTargetG: preview.carbG,
-      fibreTargetG: preview.fibreG,
-      isActive: true,
-      isUserOverride: false,
-      createdAt: new Date().toISOString(),
-    };
-    await provider.saveNutritionTarget(newTarget);
-    onSaved();
-    toast.success("Nutrition targets updated");
+    if (!user) return;
+    try {
+      await provider.updatePreferences({ activityLevel, calorieDeficitPercent: deficitPercent, proteinGramsPerKg: proteinPerKg, fatGramsPerKgTarget: fatPerKg });
+      const newTarget: NutritionTarget = {
+        id: generateId(),
+        userId: user.id,
+        effectiveFrom: new Date().toISOString().slice(0, 10),
+        bmrKcal: bmr,
+        activityLevel,
+        activityMultiplier: preview.maintenanceKcal / bmr,
+        maintenanceKcal: preview.maintenanceKcal,
+        deficitPercent,
+        calorieTargetKcal: preview.calorieTargetKcal,
+        proteinTargetG: preview.proteinG,
+        fatTargetG: preview.fatG,
+        carbTargetG: preview.carbG,
+        fibreTargetG: preview.fibreG,
+        isActive: true,
+        isUserOverride: false,
+        createdAt: new Date().toISOString(),
+      };
+      await provider.saveNutritionTarget(newTarget);
+      onSaved();
+      toast.success("Nutrition targets updated");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update nutrition targets");
+    }
   }
 
   return (

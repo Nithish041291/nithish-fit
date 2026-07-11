@@ -8,14 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Sparkles, ChefHat } from "lucide-react";
-import { useData } from "@/lib/data/context";
+import { useDataContext } from "@/lib/data/context";
 import { useProviderData, todayIsoDate } from "@/lib/data/hooks";
 import { buildFoodIndex } from "@/lib/food-parser/buildFoodIndex";
 import { computeNutrientsForGrams, resolveGramsForToken } from "@/lib/food-parser/parse";
 import { parseFoodLogText } from "@/lib/food-parser/parse";
 import { inferMealSlotFromTime } from "@/lib/food-parser/mealSlotFromTime";
 import { generateId } from "@/lib/calc/id";
-import { DEMO_USER_ID } from "@/lib/data/demoProvider";
 import { titleCase } from "@/lib/format";
 import { ParsedEntryCard } from "@/components/food/parsed-entry-card";
 import type { PendingFoodEntry } from "@/components/food/types";
@@ -25,7 +24,7 @@ import { toast } from "sonner";
 const EXAMPLE = "3 eggs bhurji with 2 rotis, 1 cup rice and 1 katori dal";
 
 export default function FoodLogPage() {
-  const provider = useData();
+  const { provider, user } = useDataContext();
   const date = todayIsoDate();
   const [text, setText] = useState("");
   const [pending, setPending] = useState<PendingFoodEntry[]>([]);
@@ -81,12 +80,17 @@ export default function FoodLogPage() {
   }
 
   async function selectFood(entry: PendingFoodEntry, foodId: string) {
+    if (!user) return;
     const next = recompute(entry, foodId, entry.quantityValue, entry.unit);
     setPending((prev) => prev.map((e) => (e.localId === entry.localId ? next : e)));
     if (foodId !== entry.originalBestMatchId) {
-      // Save the user's correction as a personal alias so next time this text matches directly.
-      await provider.saveFoodAlias({ id: generateId(), foodItemId: foodId, alias: entry.foodQuery, isUserCorrection: true, ownerUserId: DEMO_USER_ID });
-      foodAliasesState.refetch();
+      try {
+        // Save the user's correction as a personal alias so next time this text matches directly.
+        await provider.saveFoodAlias({ id: generateId(), foodItemId: foodId, alias: entry.foodQuery, isUserCorrection: true, ownerUserId: user.id });
+        foodAliasesState.refetch();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not save food alias");
+      }
     }
   }
 
@@ -105,10 +109,10 @@ export default function FoodLogPage() {
   }
 
   async function confirmEntry(entry: PendingFoodEntry) {
-    if (!entry.selectedFoodId || !entry.nutrients || entry.gramsEquivalent === null) return;
+    if (!entry.selectedFoodId || !entry.nutrients || entry.gramsEquivalent === null || !user) return;
     const log: FoodLog = {
       id: generateId(),
-      userId: DEMO_USER_ID,
+      userId: user.id,
       date,
       loggedAt: new Date().toISOString(),
       rawText: entry.rawText,
@@ -129,15 +133,23 @@ export default function FoodLogPage() {
       wasEdited: entry.selectedFoodId !== entry.originalBestMatchId,
       createdAt: new Date().toISOString(),
     };
-    await provider.saveFoodLog(log);
-    setPending((prev) => prev.filter((e) => e.localId !== entry.localId));
-    todaysLogsState.refetch();
-    toast.success("Logged");
+    try {
+      await provider.saveFoodLog(log);
+      setPending((prev) => prev.filter((e) => e.localId !== entry.localId));
+      todaysLogsState.refetch();
+      toast.success("Logged");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not log food entry");
+    }
   }
 
   async function deleteLog(id: string) {
-    await provider.deleteFoodLog(id);
-    todaysLogsState.refetch();
+    try {
+      await provider.deleteFoodLog(id);
+      todaysLogsState.refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete food entry");
+    }
   }
 
   const todaysLogs = todaysLogsState.data ?? [];

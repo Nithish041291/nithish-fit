@@ -8,13 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus } from "lucide-react";
 import { generateId } from "@/lib/calc/id";
-import { useData } from "@/lib/data/context";
-import { DEMO_USER_ID } from "@/lib/data/demoProvider";
+import { useDataContext } from "@/lib/data/context";
 import { todayIsoDate } from "@/lib/data/hooks";
 import type { BodyMeasurement } from "@/lib/types";
+import { toast } from "sonner";
 
 export function LogWeightDialog({ defaultWeightKg, onSaved }: { defaultWeightKg: number; onSaved: () => void }) {
-  const provider = useData();
+  const { provider, user } = useDataContext();
   const [open, setOpen] = useState(false);
   const [weight, setWeight] = useState(defaultWeightKg);
   const [waist, setWaist] = useState<string>("");
@@ -22,11 +22,12 @@ export function LogWeightDialog({ defaultWeightKg, onSaved }: { defaultWeightKg:
   const [saving, setSaving] = useState(false);
 
   async function save() {
+    if (!user) return;
     setSaving(true);
     try {
       const entry: BodyMeasurement = {
         id: generateId(),
-        userId: DEMO_USER_ID,
+        userId: user.id,
         date: todayIsoDate(),
         weightKg: weight,
         waistCm: waist ? Number(waist) : null,
@@ -38,6 +39,8 @@ export function LogWeightDialog({ defaultWeightKg, onSaved }: { defaultWeightKg:
       onSaved();
       setOpen(false);
       setNote("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save weight entry");
     } finally {
       setSaving(false);
     }

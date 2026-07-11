@@ -6,20 +6,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { useData } from "@/lib/data/context";
+import { useDataContext } from "@/lib/data/context";
 import { useProviderData, todayIsoDate } from "@/lib/data/hooks";
 import { resolveTodaysWorkoutDay } from "@/lib/workout/today";
 import { weekdayOf, formatWeekdayLabel } from "@/lib/format";
 import { estimateWorkoutDurationMinutes } from "@/lib/calc/duration";
 import { generateId } from "@/lib/calc/id";
-import { DEMO_USER_ID } from "@/lib/data/demoProvider";
 import { ReadinessDialog } from "@/components/workout/readiness-dialog";
 import { startWorkoutSession } from "@/lib/workout/startSession";
 import { evaluateReadiness, type ReadinessInput } from "@/lib/calc/readiness";
 import { toast } from "sonner";
 
 export default function WorkoutLandingPage() {
-  const provider = useData();
+  const { provider, user } = useDataContext();
   const router = useRouter();
   const date = todayIsoDate();
   const weekday = weekdayOf(new Date());
@@ -46,7 +45,7 @@ export default function WorkoutLandingPage() {
   );
 
   const loading = profileState.loading || workoutDaysState.loading || sessionsState.loading || plannedState.loading;
-  if (loading || !profileState.data) {
+  if (loading || !profileState.data || !user) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-8 w-40" />
@@ -75,35 +74,43 @@ export default function WorkoutLandingPage() {
   }
 
   async function handleReadinessSubmit(input: ReadinessInput) {
-    const evaluation = evaluateReadiness(input);
-    const entry = await provider.saveReadinessEntry({
-      id: generateId(),
-      userId: DEMO_USER_ID,
-      date,
-      sleepHours: input.sleepHours,
-      energyLevel: input.energyLevel,
-      muscleSoreness: input.muscleSoreness,
-      wristPain: input.wristPain,
-      stressLevel: input.stressLevel,
-      createdAt: new Date().toISOString(),
-    });
     setShowReadiness(false);
-    if (evaluation.recommendation === "stop_medical_review") {
-      toast.error(evaluation.reasonText, { duration: 8000 });
-      return;
+    if (!user) return;
+    try {
+      const evaluation = evaluateReadiness(input);
+      const entry = await provider.saveReadinessEntry({
+        id: generateId(),
+        userId: user.id,
+        date,
+        sleepHours: input.sleepHours,
+        energyLevel: input.energyLevel,
+        muscleSoreness: input.muscleSoreness,
+        wristPain: input.wristPain,
+        stressLevel: input.stressLevel,
+        createdAt: new Date().toISOString(),
+      });
+      if (evaluation.recommendation === "stop_medical_review") {
+        toast.error(evaluation.reasonText, { duration: 8000 });
+        return;
+      }
+      if (evaluation.recommendation !== "proceed_normally") {
+        toast(evaluation.reasonText, { duration: 6000 });
+      }
+      await beginSession(entry.id);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save readiness check-in");
     }
-    if (evaluation.recommendation !== "proceed_normally") {
-      toast(evaluation.reasonText, { duration: 6000 });
-    }
-    await beginSession(entry.id);
   }
 
   async function beginSession(readinessEntryId: string | null) {
+    if (!user) return;
     setStarting(true);
     try {
       const label = day?.label ?? (isRestDay ? "Optional session" : formatWeekdayLabel(weekday));
-      const sessionId = await startWorkoutSession({ provider, workoutDay: day, label, date, readinessEntryId });
+      const sessionId = await startWorkoutSession({ provider, userId: user.id, workoutDay: day, label, date, readinessEntryId });
       router.push(`/workout/session/${sessionId}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not start the workout");
     } finally {
       setStarting(false);
     }

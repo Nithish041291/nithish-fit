@@ -17,9 +17,14 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `npx next start -p ${PORT}`,
+    // NODE_ENV=test makes Next.js skip .env.local (see Next.js docs on env loading order),
+    // so e2e tests always exercise local demo mode regardless of what's in .env.local for
+    // local Supabase development. Rebuilds every run (not just `next start`) because
+    // NEXT_PUBLIC_* values are inlined at build time, not read at server start.
+    command: `npx next build && npx next start -p ${PORT}`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 180_000,
+    env: { NODE_ENV: "test" },
   },
 });

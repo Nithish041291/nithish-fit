@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Sparkles } from "lucide-react";
 import { useDataContext } from "@/lib/data/context";
 import { useProviderData, todayIsoDate } from "@/lib/data/hooks";
 import { resolveTodaysWorkoutDay } from "@/lib/workout/today";
@@ -15,6 +16,7 @@ import { generateId } from "@/lib/calc/id";
 import { ReadinessDialog } from "@/components/workout/readiness-dialog";
 import { startWorkoutSession } from "@/lib/workout/startSession";
 import { evaluateReadiness, type ReadinessInput } from "@/lib/calc/readiness";
+import { readAndClearRotationNotice, type StoredRotationNotice } from "@/lib/workout/rotationNotice";
 import { toast } from "sonner";
 
 export default function WorkoutLandingPage() {
@@ -24,6 +26,12 @@ export default function WorkoutLandingPage() {
   const weekday = weekdayOf(new Date());
   const [starting, setStarting] = useState(false);
   const [showReadiness, setShowReadiness] = useState(false);
+  const [rotationNotice, setRotationNotice] = useState<StoredRotationNotice | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    setRotationNotice(readAndClearRotationNotice(user.id));
+  }, [user]);
 
   const profileState = useProviderData((p) => p.getProfile());
   const programmeState = useProviderData((p) => p.getActiveProgramme());
@@ -66,6 +74,7 @@ export default function WorkoutLandingPage() {
         <p className="text-muted-foreground text-sm">
           {todaysSession.status === "completed" ? "Completed" : "In progress"} · {date}
         </p>
+        <RotationNoticeCard notice={rotationNotice} />
         <Button size="lg" className="w-full h-14 text-base" onClick={() => router.push(`/workout/session/${todaysSession.id}`)}>
           {todaysSession.status === "completed" ? "View summary" : "Resume workout"}
         </Button>
@@ -124,6 +133,8 @@ export default function WorkoutLandingPage() {
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">{day?.label ?? (isRestDay ? "Rest day" : formatWeekdayLabel(weekday))}</h1>
 
+      <RotationNoticeCard notice={rotationNotice} />
+
       {isRestDay && (
         <Card>
           <CardHeader>
@@ -177,5 +188,26 @@ export default function WorkoutLandingPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+function RotationNoticeCard({ notice }: { notice: StoredRotationNotice | null }) {
+  if (!notice || notice.changes.length === 0) return null;
+  return (
+    <Card className="border-primary/30 bg-primary/5">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-1.5 text-base">
+          <Sparkles className="size-4" /> Training block refreshed
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-1 text-sm text-muted-foreground">
+        <p>To keep training varied, {notice.changes.length} exercise{notice.changes.length === 1 ? "" : "s"} rotated to a fresh alternative:</p>
+        {notice.changes.map((c, idx) => (
+          <p key={idx}>
+            <span className="font-medium text-foreground">{c.dayLabel}:</span> {c.fromName} → {c.toName}
+          </p>
+        ))}
+      </CardContent>
+    </Card>
   );
 }

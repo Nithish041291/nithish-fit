@@ -58,6 +58,20 @@ of the brief; they are reasonable defaults for a single-user personal app.
   breakfast/lunch/dinner templates per cuisine style to avoid repeating the
   same day twice in a row; it is not a fully unique 7×8-meal hand-authored
   set for every possible preference combination.
+- **Automatic exercise rotation** (added after initial launch, per user
+  request): every `programme.cycleWeeks` (default 5), each planned exercise
+  is swapped for a fresh alternative — the exercise's curated
+  `substituteExerciseSlugs`, broadened with any other exercise sharing the
+  same primary muscle and movement pattern from the 70-exercise directory —
+  filtered to the user's currently enabled equipment and excluding whatever
+  that slot used in the last 2 cycles. Selection is deterministic per
+  (slot, cycle) via a stable hash, not random, so re-checking mid-cycle never
+  changes an already-decided pick. This runs silently in the background (no
+  confirmation prompt, per explicit instruction) once per day via a client
+  component mounted in the app shell, gated by a rotation log stored through
+  the existing generic `getSetting`/`setSetting` key-value store — no schema
+  migration needed. See `lib/calc/rotation.ts` (pure selection logic) and
+  `lib/workout/rotation.ts` (orchestration against `DataProvider`).
 
 - **Seeded nutrition target reconciliation**: the spec lists both "current target in use"
   (~2250 kcal / 180g protein) and a "default moderate deficit of 15-20%" for *new*

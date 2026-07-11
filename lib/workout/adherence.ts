@@ -1,3 +1,4 @@
+import { toLocalIsoDate } from "@/lib/format";
 import type { FoodLog, Weekday, WorkoutSession } from "@/lib/types";
 
 export function startOfWeekIso(asOfIso: string): string {
@@ -5,7 +6,7 @@ export function startOfWeekIso(asOfIso: string): string {
   const day = date.getDay(); // 0 = Sunday
   const diffToMonday = day === 0 ? -6 : 1 - day;
   date.setDate(date.getDate() + diffToMonday);
-  return date.toISOString().slice(0, 10);
+  return toLocalIsoDate(date);
 }
 
 function weekdaysUpTo(trainingDays: Weekday[], weekStartIso: string, asOfIso: string): number {
@@ -41,7 +42,7 @@ export function calculateNutritionAdherencePercent(foodLogs: FoodLog[], calorieT
     const d = new Date(start);
     d.setDate(start.getDate() + i);
     if (d > asOf) break;
-    days.push(d.toISOString().slice(0, 10));
+    days.push(toLocalIsoDate(d));
   }
   if (days.length === 0 || calorieTarget <= 0) return 0;
   let onTarget = 0;

@@ -1,3 +1,5 @@
+import { toLocalIsoDate } from "@/lib/format";
+
 export interface WeighIn {
   date: string; // YYYY-MM-DD
   weightKg: number;
@@ -9,10 +11,10 @@ export interface WeighIn {
  * so callers can distinguish "no data" from "0 kg".
  */
 export function sevenDayMovingAverage(weighIns: WeighIn[], asOfDate: string): number | null {
-  const end = new Date(asOfDate + "T00:00:00Z").getTime();
+  const end = new Date(asOfDate + "T00:00:00").getTime();
   const start = end - 6 * 24 * 60 * 60 * 1000;
   const inWindow = weighIns.filter((w) => {
-    const t = new Date(w.date + "T00:00:00Z").getTime();
+    const t = new Date(w.date + "T00:00:00").getTime();
     return t >= start && t <= end;
   });
   if (inWindow.length === 0) return null;
@@ -23,9 +25,7 @@ export function sevenDayMovingAverage(weighIns: WeighIn[], asOfDate: string): nu
 /** Weekly rate of change (kg/week) comparing the 7-day average now vs. 7 days ago. */
 export function weeklyRateOfChange(weighIns: WeighIn[], asOfDate: string): number | null {
   const currentAvg = sevenDayMovingAverage(weighIns, asOfDate);
-  const priorDate = new Date(new Date(asOfDate + "T00:00:00Z").getTime() - 7 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  const priorDate = toLocalIsoDate(new Date(new Date(asOfDate + "T00:00:00").getTime() - 7 * 24 * 60 * 60 * 1000));
   const priorAvg = sevenDayMovingAverage(weighIns, priorDate);
   if (currentAvg === null || priorAvg === null) return null;
   return Math.round((currentAvg - priorAvg) * 100) / 100;
@@ -49,8 +49,8 @@ export function estimateTargetDate(
   if (Math.sign(remaining) !== Math.sign(rate) || rate === 0) return null;
   const weeksNeeded = remaining / rate;
   const days = Math.round(weeksNeeded * 7);
-  const target = new Date(new Date(asOfDate + "T00:00:00Z").getTime() + days * 24 * 60 * 60 * 1000);
-  return target.toISOString().slice(0, 10);
+  const target = new Date(new Date(asOfDate + "T00:00:00").getTime() + days * 24 * 60 * 60 * 1000);
+  return toLocalIsoDate(target);
 }
 
 /** Warn when the weekly rate of loss exceeds ~1% of body weight per week. */

@@ -6,6 +6,17 @@ export function weekdayOf(date: Date): Weekday {
   return WEEKDAYS[date.getDay()];
 }
 
+/** Converts a Date to a "YYYY-MM-DD" string using its LOCAL calendar date — unlike
+ * `date.toISOString().slice(0, 10)`, which reads the UTC calendar date and is wrong for part
+ * of the day in any timezone ahead of UTC (e.g. it reports "yesterday" in India for the first
+ * ~5.5 hours after local midnight). Always use this for "what date is it right now" logic. */
+export function toLocalIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function formatWeekdayLabel(weekday: Weekday): string {
   return weekday.charAt(0).toUpperCase() + weekday.slice(1);
 }

@@ -10,7 +10,7 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import { useProviderData, todayIsoDate } from "@/lib/data/hooks";
 import { LogWeightDialog } from "@/components/progress/log-weight-dialog";
 import { estimateTargetDate, isLossRateExcessive, sevenDayMovingAverage, weeklyRateOfChange } from "@/lib/calc/movingAverage";
-import { formatDateShort, formatKg } from "@/lib/format";
+import { formatDateShort, formatKg, toLocalIsoDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const RANGE_OPTIONS = [
@@ -29,9 +29,9 @@ export default function ProgressPage() {
   const foodLogsState = useProviderData((p) => p.listFoodLogs());
   const sessionsState = useProviderData((p) => p.listSessions());
 
-  const rangeStart = new Date(date);
+  const rangeStart = new Date(date + "T00:00:00");
   rangeStart.setDate(rangeStart.getDate() - rangeDays);
-  const rangeStartIso = rangeStart.toISOString().slice(0, 10);
+  const rangeStartIso = toLocalIsoDate(rangeStart);
   const sessionIds = (sessionsState.data ?? []).filter((s) => s.date >= rangeStartIso && s.status === "completed").map((s) => s.id);
 
   // All hooks must run every render (Rules of Hooks) — this stays above the loading guard below.

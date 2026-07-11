@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Sparkles } from "lucide-react";
 import { useDataContext } from "@/lib/data/context";
-import { useProviderData } from "@/lib/data/hooks";
+import { todayIsoDate, useProviderData } from "@/lib/data/hooks";
 import { generateMealPlan, type FoodIndexItem } from "@/lib/mealplan/generate";
 import { defaultMealPlanPreferences } from "@/db/seed/mealPlanPreferences";
 import { formatDateLong, titleCase } from "@/lib/format";
@@ -51,7 +51,7 @@ export default function MealPlanPage() {
       }
       const { mealPlan, days, meals } = generateMealPlan({
         userId: user.id,
-        startDate: new Date().toISOString().slice(0, 10),
+        startDate: todayIsoDate(),
         preferences,
         targetCalories: targetState.data.calorieTargetKcal,
         targetProteinG: targetState.data.proteinTargetG,

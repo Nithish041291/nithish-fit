@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useDataContext } from "@/lib/data/context";
+import { todayIsoDate } from "@/lib/data/hooks";
 import { applyExerciseRotation } from "@/lib/workout/rotation";
 import { writeRotationNotice } from "@/lib/workout/rotationNotice";
 
@@ -20,7 +21,7 @@ export function ExerciseRotationCheck() {
 
   useEffect(() => {
     if (seeding || !user || ran.current || typeof window === "undefined") return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayIsoDate();
     const key = storageKeyFor(user.id);
     if (window.localStorage.getItem(key) === today) return;
     ran.current = true;

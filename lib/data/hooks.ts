@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { toLocalIsoDate } from "@/lib/format";
 import { useData, useDataContext } from "./context";
 import type { DataProvider } from "./provider";
 
@@ -62,7 +63,7 @@ export function useProviderData<T>(fn: (provider: DataProvider) => Promise<T>, d
 }
 
 export function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toLocalIsoDate(new Date());
 }
 
 export function nowIso(): string {

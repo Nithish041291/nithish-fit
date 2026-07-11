@@ -12,6 +12,7 @@ import { calculateMacroTargets } from "@/lib/calc/macros";
 import type { ActivityLevel } from "@/lib/calc/types";
 import { generateId } from "@/lib/calc/id";
 import { useDataContext } from "@/lib/data/context";
+import { todayIsoDate } from "@/lib/data/hooks";
 import type { NutritionTarget, UserPreference, UserProfile } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -52,7 +53,7 @@ export function NutritionTargetPanel({
       const newTarget: NutritionTarget = {
         id: generateId(),
         userId: user.id,
-        effectiveFrom: new Date().toISOString().slice(0, 10),
+        effectiveFrom: todayIsoDate(),
         bmrKcal: bmr,
         activityLevel,
         activityMultiplier: preview.maintenanceKcal / bmr,

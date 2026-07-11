@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { generateId } from "@/lib/calc/id";
 import { useData } from "@/lib/data/context";
+import { todayIsoDate } from "@/lib/data/hooks";
 import type { FoodItem } from "@/lib/types";
 
 export function CustomFoodDialog({ initialName, onCreated }: { initialName: string; onCreated: (food: FoodItem) => void }) {
@@ -39,7 +40,7 @@ export function CustomFoodDialog({ initialName, onCreated }: { initialName: stri
         source: "User-provided",
         measurementBasis: "per 100g, user-provided",
         reliability: "user_provided",
-        lastUpdated: new Date().toISOString().slice(0, 10),
+        lastUpdated: todayIsoDate(),
         isCustom: true,
         ownerUserId: null,
       };

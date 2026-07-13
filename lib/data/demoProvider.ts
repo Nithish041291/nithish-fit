@@ -50,7 +50,7 @@ export class DemoDataProvider implements DataProvider {
   async updateProfile(patch: Partial<UserProfile>): Promise<UserProfile> {
     const existing = await this.getProfile();
     const now = new Date().toISOString();
-    const next: UserProfile = { ...(existing as UserProfile), ...patch, updatedAt: now };
+    const next: UserProfile = { ...(existing as UserProfile), ...patch, id: existing?.id ?? patch.id ?? generateId(), updatedAt: now };
     await db.put("userProfiles", next);
     return next;
   }
@@ -60,7 +60,12 @@ export class DemoDataProvider implements DataProvider {
   }
   async updatePreferences(patch: Partial<UserPreference>): Promise<UserPreference> {
     const existing = await this.getPreferences();
-    const next: UserPreference = { ...(existing as UserPreference), ...patch, updatedAt: new Date().toISOString() };
+    const next: UserPreference = {
+      ...(existing as UserPreference),
+      ...patch,
+      id: existing?.id ?? patch.id ?? generateId(),
+      updatedAt: new Date().toISOString(),
+    };
     await db.put("userPreferences", next);
     return next;
   }

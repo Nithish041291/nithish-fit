@@ -68,6 +68,45 @@ describe("repairSessionExercises", () => {
     }
   });
 
+  it("reopens a session that was marked completed while empty", async () => {
+    const programme = await demoDataProvider.getActiveProgramme();
+    if (!programme) throw new Error("expected active programme");
+    const days = await demoDataProvider.listWorkoutDays(programme.id);
+    const monday = days.find((d) => d.weekday === "monday");
+    if (!monday) throw new Error("expected a monday workout day in the seed");
+
+    // The user had no other option but to tap "Complete workout" on an empty session.
+    const brokenSession = await demoDataProvider.saveSession({
+      id: generateId(),
+      userId: "demo-user",
+      programmeId: programme.id,
+      workoutDayId: null,
+      label: "Monday",
+      date: "2026-07-13",
+      startedAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+      status: "completed",
+      readinessEntryId: null,
+      sessionDifficulty: 5,
+      wristPainScore: 0,
+      notes: "",
+      isDeload: false,
+      durationMinutes: 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    const attached = await repairSessionExercises({ provider: demoDataProvider, session: brokenSession });
+    expect(attached).toBe(true);
+
+    const fixedSession = await demoDataProvider.getSession(brokenSession.id);
+    expect(fixedSession?.status).toBe("in_progress");
+    expect(fixedSession?.completedAt).toBeNull();
+
+    const after = await demoDataProvider.listPerformances(brokenSession.id);
+    expect(after.length).toBeGreaterThan(0);
+  });
+
   it("returns false and leaves the session untouched for a genuine rest day", async () => {
     const programme = await demoDataProvider.getActiveProgramme();
     if (!programme) throw new Error("expected active programme");

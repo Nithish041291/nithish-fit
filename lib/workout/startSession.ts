@@ -131,8 +131,18 @@ export async function repairSessionExercises(params: { provider: DataProvider; s
   const workoutDay = resolveTodaysWorkoutDay(weekday, days);
   if (!workoutDay || workoutDay.isRestDay) return false;
 
-  if (session.workoutDayId !== workoutDay.id) {
-    await provider.saveSession({ ...session, workoutDayId: workoutDay.id, updatedAt: new Date().toISOString() });
+  if (session.workoutDayId !== workoutDay.id || session.status === "completed") {
+    // A session marked "completed" while it had zero exercises attached (e.g. the user had
+    // no other option but to tap "Complete workout") is reopened rather than left completed,
+    // since it's about to receive real, unstarted exercises.
+    await provider.saveSession({
+      ...session,
+      workoutDayId: workoutDay.id,
+      status: "in_progress",
+      completedAt: null,
+      durationMinutes: null,
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   await attachPlannedExercisesToSession({

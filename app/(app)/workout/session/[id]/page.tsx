@@ -260,12 +260,14 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ id: s
         </Card>
       )}
 
-      {performances.length === 0 && !isCompleted && (
+      {performances.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground text-center space-y-3">
             <p>
-              No exercises are attached to this session yet — this can happen if it was started before your programme finished loading. Try
-              loading today&apos;s planned exercises, or mark it complete if this was intentional.
+              No exercises are attached to this session — this can happen if it was started before your programme finished loading.
+              {isCompleted
+                ? " Loading today's exercises now will reopen this session so you can log them."
+                : " Try loading today's planned exercises, or mark it complete if this was intentional."}
             </p>
             <Button onClick={repairExercises} disabled={repairing} className="w-full">
               {repairing ? "Loading…" : "Load today's planned exercises"}

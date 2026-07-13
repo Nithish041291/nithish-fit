@@ -58,6 +58,17 @@ of the brief; they are reasonable defaults for a single-user personal app.
   breakfast/lunch/dinner templates per cuisine style to avoid repeating the
   same day twice in a row; it is not a fully unique 7×8-meal hand-authored
   set for every possible preference combination.
+- **Per-exercise coaching notes** (added after initial launch, per user
+  request for the workout session screen to read like guidance from a
+  coach, not just a bare number): `recommendProgression()`'s already-computed
+  `reasonText` (e.g. "All sets reached the top of the rep range with 2+
+  reps in reserve and no pain. Increasing by the smallest available
+  increment...") is now persisted onto `ExercisePerformance.note` at session
+  start and shown as a "Today's target" callout on each exercise card,
+  instead of being computed and discarded. No hand-written weekly plan is
+  stored anywhere — the note is always freshly derived from the user's own
+  logged history, so it stays correct indefinitely rather than going stale
+  after one week like a manually authored plan would.
 - **Automatic exercise rotation** (added after initial launch, per user
   request): every `programme.cycleWeeks` (default 5), each planned exercise
   is swapped for a fresh alternative — the exercise's curated

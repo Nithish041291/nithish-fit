@@ -57,6 +57,13 @@ export function ExercisePerformanceCard(props: ExercisePerformanceCardProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {props.performance.note && (
+          <p className="text-xs bg-primary/5 border border-primary/20 rounded-md px-2.5 py-2">
+            <span className="font-medium">Today&apos;s target: </span>
+            <span className="text-muted-foreground">{props.performance.note}</span>
+          </p>
+        )}
+
         {showAlternatives && exercise.substituteExerciseSlugs.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {exercise.substituteExerciseSlugs.map((slug) => (

@@ -230,6 +230,15 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ id: s
         </Card>
       )}
 
+      {!isCompleted && performances.length > 0 && (
+        <Card className="bg-muted/30">
+          <CardContent className="pt-4 text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Warm up — </span>
+            5 min light cardio, arm circles, and wrist rotations before your first working set.
+          </CardContent>
+        </Card>
+      )}
+
       {performances.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground text-center">

@@ -49,18 +49,10 @@ export async function startWorkoutSession(params: {
 
   for (const [index, planned] of plannedExercises.entries()) {
     const exercise = await provider.getExercise(planned.exerciseSlug);
-    const performance = await provider.savePerformance({
-      id: generateId(),
-      sessionId: session.id,
-      exerciseSlug: planned.exerciseSlug,
-      orderIndex: index,
-      wasSkipped: false,
-      wasReplacedBySlug: null,
-      wasAddedExtra: false,
-    });
 
     let suggestedWeight: number | null = null;
     let suggestedReps: number = planned.targetRepsLow;
+    let coachingNote: string | undefined;
 
     if (exercise) {
       const historyRaw = await provider.listSetsForExercise(exercise.slug);
@@ -70,7 +62,19 @@ export async function startWorkoutSession(params: {
       const suggestion = buildSuggestion({ exercise, history, increments, asOfDateIso: date, isDeloadActive: deloadStatus.recommended });
       suggestedWeight = suggestion.recommendedWeightKg;
       suggestedReps = suggestion.recommendedRepsHigh;
+      coachingNote = suggestion.reasonText;
     }
+
+    const performance = await provider.savePerformance({
+      id: generateId(),
+      sessionId: session.id,
+      exerciseSlug: planned.exerciseSlug,
+      orderIndex: index,
+      wasSkipped: false,
+      wasReplacedBySlug: null,
+      wasAddedExtra: false,
+      note: coachingNote,
+    });
 
     const setCount = deloadStatus.recommended ? Math.max(1, Math.round(planned.targetSets * 0.6)) : planned.targetSets;
     for (let setNumber = 1; setNumber <= setCount; setNumber++) {

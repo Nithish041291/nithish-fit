@@ -1,8 +1,69 @@
 import { generateId } from "@/lib/calc/id";
 import type { DataProvider } from "@/lib/data/provider";
-import type { WorkoutDay } from "@/lib/types";
+import { weekdayOf } from "@/lib/format";
+import type { AvailableWeightIncrement, WorkoutDay, WorkoutSession } from "@/lib/types";
 import { evaluateDeloadStatus } from "./deloadStatus";
 import { buildSuggestion, type ExerciseHistoryEntry } from "./suggestion";
+import { resolveTodaysWorkoutDay } from "./today";
+
+async function attachPlannedExercisesToSession(params: {
+  provider: DataProvider;
+  sessionId: string;
+  workoutDay: WorkoutDay;
+  date: string;
+  increments: AvailableWeightIncrement[];
+  isDeloadActive: boolean;
+}): Promise<void> {
+  const { provider, sessionId, workoutDay, date, increments, isDeloadActive } = params;
+  const plannedExercises = await provider.listPlannedExercises(workoutDay.id);
+
+  for (const [index, planned] of plannedExercises.entries()) {
+    const exercise = await provider.getExercise(planned.exerciseSlug);
+
+    let suggestedWeight: number | null = null;
+    let suggestedReps: number = planned.targetRepsLow;
+    let coachingNote: string | undefined;
+
+    if (exercise) {
+      const historyRaw = await provider.listSetsForExercise(exercise.slug);
+      const history: ExerciseHistoryEntry[] = historyRaw
+        .filter((h) => h.session.date < date)
+        .map((h) => ({ session: h.session, sets: h.sets }));
+      const suggestion = buildSuggestion({ exercise, history, increments, asOfDateIso: date, isDeloadActive });
+      suggestedWeight = suggestion.recommendedWeightKg;
+      suggestedReps = suggestion.recommendedRepsHigh;
+      coachingNote = suggestion.reasonText;
+    }
+
+    const performance = await provider.savePerformance({
+      id: generateId(),
+      sessionId,
+      exerciseSlug: planned.exerciseSlug,
+      orderIndex: index,
+      wasSkipped: false,
+      wasReplacedBySlug: null,
+      wasAddedExtra: false,
+      note: coachingNote,
+    });
+
+    const setCount = isDeloadActive ? Math.max(1, Math.round(planned.targetSets * 0.6)) : planned.targetSets;
+    for (let setNumber = 1; setNumber <= setCount; setNumber++) {
+      await provider.saveSet({
+        id: generateId(),
+        performanceId: performance.id,
+        setNumber,
+        suggestedWeightKg: suggestedWeight,
+        actualWeightKg: null,
+        suggestedReps,
+        actualReps: null,
+        rir: null,
+        painScore: null,
+        completed: false,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+}
 
 export async function startWorkoutSession(params: {
   provider: DataProvider;
@@ -45,54 +106,42 @@ export async function startWorkoutSession(params: {
     updatedAt: new Date().toISOString(),
   });
 
-  const plannedExercises = workoutDay ? await provider.listPlannedExercises(workoutDay.id) : [];
-
-  for (const [index, planned] of plannedExercises.entries()) {
-    const exercise = await provider.getExercise(planned.exerciseSlug);
-
-    let suggestedWeight: number | null = null;
-    let suggestedReps: number = planned.targetRepsLow;
-    let coachingNote: string | undefined;
-
-    if (exercise) {
-      const historyRaw = await provider.listSetsForExercise(exercise.slug);
-      const history: ExerciseHistoryEntry[] = historyRaw
-        .filter((h) => h.session.date < date)
-        .map((h) => ({ session: h.session, sets: h.sets }));
-      const suggestion = buildSuggestion({ exercise, history, increments, asOfDateIso: date, isDeloadActive: deloadStatus.recommended });
-      suggestedWeight = suggestion.recommendedWeightKg;
-      suggestedReps = suggestion.recommendedRepsHigh;
-      coachingNote = suggestion.reasonText;
-    }
-
-    const performance = await provider.savePerformance({
-      id: generateId(),
-      sessionId: session.id,
-      exerciseSlug: planned.exerciseSlug,
-      orderIndex: index,
-      wasSkipped: false,
-      wasReplacedBySlug: null,
-      wasAddedExtra: false,
-      note: coachingNote,
-    });
-
-    const setCount = deloadStatus.recommended ? Math.max(1, Math.round(planned.targetSets * 0.6)) : planned.targetSets;
-    for (let setNumber = 1; setNumber <= setCount; setNumber++) {
-      await provider.saveSet({
-        id: generateId(),
-        performanceId: performance.id,
-        setNumber,
-        suggestedWeightKg: suggestedWeight,
-        actualWeightKg: null,
-        suggestedReps,
-        actualReps: null,
-        rir: null,
-        painScore: null,
-        completed: false,
-        timestamp: new Date().toISOString(),
-      });
-    }
+  if (workoutDay) {
+    await attachPlannedExercisesToSession({ provider, sessionId: session.id, workoutDay, date, increments, isDeloadActive: deloadStatus.recommended });
   }
 
   return session.id;
+}
+
+/**
+ * Recovery path for a session that ended up with zero attached exercises — e.g. it was
+ * started before the active programme's workout days had finished loading. Re-resolves
+ * today's workout day from the active programme and attaches its planned exercises to the
+ * existing session in place (rather than creating a new one, so startedAt/readiness data
+ * already on the session isn't lost). Returns false if no workout day could be resolved for
+ * the session's date (a genuine rest day with no optional-workout day configured).
+ */
+export async function repairSessionExercises(params: { provider: DataProvider; session: WorkoutSession }): Promise<boolean> {
+  const { provider, session } = params;
+  const programme = await provider.getActiveProgramme();
+  if (!programme) return false;
+
+  const [days, increments] = await Promise.all([provider.listWorkoutDays(programme.id), provider.listAvailableWeightIncrements()]);
+  const weekday = weekdayOf(new Date(session.date + "T00:00:00"));
+  const workoutDay = resolveTodaysWorkoutDay(weekday, days);
+  if (!workoutDay || workoutDay.isRestDay) return false;
+
+  if (session.workoutDayId !== workoutDay.id) {
+    await provider.saveSession({ ...session, workoutDayId: workoutDay.id, updatedAt: new Date().toISOString() });
+  }
+
+  await attachPlannedExercisesToSession({
+    provider,
+    sessionId: session.id,
+    workoutDay,
+    date: session.date,
+    increments,
+    isDeloadActive: session.isDeload,
+  });
+  return true;
 }

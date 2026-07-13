@@ -14,6 +14,7 @@ import { useData } from "@/lib/data/context";
 import { useProviderData } from "@/lib/data/hooks";
 import { generateId } from "@/lib/calc/id";
 import { calculateVolume } from "@/lib/calc/volume";
+import { repairSessionExercises } from "@/lib/workout/startSession";
 import type { Exercise, ExercisePerformance, ExerciseSet, PlannedExercise } from "@/lib/types";
 import { toast } from "sonner";
 import { ArrowLeft, PartyPopper } from "lucide-react";
@@ -36,6 +37,7 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ id: s
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadedDetails, setLoadedDetails] = useState(false);
+  const [repairing, setRepairing] = useState(false);
   const restTimerNonce = useRef(0);
 
   const session = sessionState.data;
@@ -151,6 +153,25 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ id: s
     performancesState.refetch();
   }
 
+  async function repairExercises() {
+    if (!session) return;
+    setRepairing(true);
+    try {
+      const attached = await repairSessionExercises({ provider, session });
+      if (attached) {
+        toast.success("Today's exercises loaded");
+        sessionState.refetch();
+        performancesState.refetch();
+      } else {
+        toast.error("No planned workout day found for this date — check your active programme in Settings.");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not load exercises");
+    } finally {
+      setRepairing(false);
+    }
+  }
+
   async function completeWorkout() {
     if (!session) return;
     setSaving(true);
@@ -239,11 +260,16 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ id: s
         </Card>
       )}
 
-      {performances.length === 0 && (
+      {performances.length === 0 && !isCompleted && (
         <Card>
-          <CardContent className="pt-6 text-sm text-muted-foreground text-center">
-            No exercises are attached to this session (e.g. an optional rest-day workout started without a planned day). Mark it complete or add
-            exercises from the exercise directory.
+          <CardContent className="pt-6 text-sm text-muted-foreground text-center space-y-3">
+            <p>
+              No exercises are attached to this session yet — this can happen if it was started before your programme finished loading. Try
+              loading today&apos;s planned exercises, or mark it complete if this was intentional.
+            </p>
+            <Button onClick={repairExercises} disabled={repairing} className="w-full">
+              {repairing ? "Loading…" : "Load today's planned exercises"}
+            </Button>
           </CardContent>
         </Card>
       )}

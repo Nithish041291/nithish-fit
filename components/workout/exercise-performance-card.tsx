@@ -74,8 +74,16 @@ export function ExercisePerformanceCard(props: ExercisePerformanceCardProps) {
           </div>
         )}
 
+        {previousSession && (
+          <div className="rounded-md bg-muted/50 px-2.5 py-2 text-xs">
+            <p className="text-muted-foreground">
+              Last time ({previousSession.label}) — beat this today for progressive overload:
+            </p>
+            <p className="font-medium tabular-nums mt-0.5">{previousSession.text}</p>
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-1.5 text-xs">
-          {previousSession && <Badge variant="secondary">Last: {previousSession.text}</Badge>}
           {previousWeek && <Badge variant="secondary">Last week: {previousWeek.text}</Badge>}
           {personalBestKg !== null && <Badge variant="outline">PB: {personalBestKg}kg</Badge>}
         </div>

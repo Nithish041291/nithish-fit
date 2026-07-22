@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles } from "lucide-react";
+import { Sparkles, History } from "lucide-react";
+import Link from "next/link";
 import { useDataContext } from "@/lib/data/context";
 import { useProviderData, todayIsoDate } from "@/lib/data/hooks";
 import { resolveTodaysWorkoutDay } from "@/lib/workout/today";
@@ -70,7 +71,12 @@ export default function WorkoutLandingPage() {
   if (todaysSession) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold">{todaysSession.label}</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">{todaysSession.label}</h1>
+          <Link href="/workout/history" className="text-muted-foreground flex items-center gap-1 text-sm">
+            <History className="size-4" /> History
+          </Link>
+        </div>
         <p className="text-muted-foreground text-sm">
           {todaysSession.status === "completed" ? "Completed" : "In progress"} · {date}
         </p>
@@ -131,7 +137,12 @@ export default function WorkoutLandingPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">{day?.label ?? (isRestDay ? "Rest day" : formatWeekdayLabel(weekday))}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">{day?.label ?? (isRestDay ? "Rest day" : formatWeekdayLabel(weekday))}</h1>
+        <Link href="/workout/history" className="text-muted-foreground flex items-center gap-1 text-sm">
+          <History className="size-4" /> History
+        </Link>
+      </div>
 
       <RotationNoticeCard notice={rotationNotice} />
 

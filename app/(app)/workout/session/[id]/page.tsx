@@ -200,9 +200,11 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ id: s
     if (!entry) return null;
     const completedSets = entry.sets.filter((s) => s.completed);
     if (completedSets.length === 0) return null;
-    const weight = completedSets[0].actualWeightKg;
-    const reps = completedSets.map((s) => s.actualReps ?? 0).join(", ");
-    return { label: entry.session.date, text: `${weight}kg x ${reps}` };
+    // Per-set weight and reps, not just the first set's weight — sets don't always use the
+    // same weight (e.g. a lighter warm-up set or a drop on the last set), and knowing exactly
+    // what each set was last time is what you need to decide today's progressive-overload target.
+    const perSet = completedSets.map((s, i) => `S${i + 1} ${s.actualWeightKg ?? "—"}kg×${s.actualReps ?? "—"}`).join("  ·  ");
+    return { label: entry.session.date, text: perSet };
   }
 
   const totalVolume = calculateVolume(

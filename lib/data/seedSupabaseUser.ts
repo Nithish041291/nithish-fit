@@ -106,24 +106,41 @@ export async function seedSupabaseUserData(provider: DataProvider, userId: strin
 
   // Workout programme -> days -> planned exercises. Planned exercises reference exercises
   // by slug (already present from the reference-data SQL), so no id lookup is needed there.
-  const existingProgramme = await provider.getActiveProgramme();
-  if (!existingProgramme) {
-    const programmeId = generateId();
-    await provider.saveProgramme({ ...programmeSeed, id: programmeId, userId, createdAt: now, updatedAt: now });
+  let programme = await provider.getActiveProgramme();
+  if (!programme) {
+    programme = { ...programmeSeed, id: generateId(), userId, createdAt: now, updatedAt: now };
+    await provider.saveProgramme(programme);
 
-    const dayIdByOldId = new Map<string, string>();
     for (const day of workoutDaySeed) {
-      const newDayId = generateId();
-      dayIdByOldId.set(day.id, newDayId);
-      await provider.saveWorkoutDay({ ...day, id: newDayId, programmeId });
-    }
-
-    for (const planned of plannedExerciseSeed) {
-      const newDayId = dayIdByOldId.get(planned.workoutDayId);
-      if (!newDayId) continue;
-      await provider.savePlannedExercise({ ...planned, id: generateId(), workoutDayId: newDayId });
+      await provider.saveWorkoutDay({ ...day, id: generateId(), programmeId: programme.id });
     }
     seededAnything = true;
+  }
+
+  // Backfill per workout day independently, rather than only at programme-creation time —
+  // if a single exercise slug is missing from the reference `exercises` table (a data-entry
+  // gap, not something the user can control) the insert throws and previously aborted the
+  // *entire remaining loop*, silently leaving every day after it with zero planned exercises
+  // forever, even on days whose own exercises were all valid. Each planned exercise is now
+  // inserted independently so one bad slug can't take down unrelated days or exercises.
+  const days = await provider.listWorkoutDays(programme.id);
+  for (const day of days) {
+    if (day.isRestDay) continue;
+    const existingPlanned = await provider.listPlannedExercises(day.id);
+    if (existingPlanned.length > 0) continue;
+
+    const seedDay = workoutDaySeed.find((d) => d.weekday === day.weekday);
+    if (!seedDay) continue;
+    const plannedForThisDay = plannedExerciseSeed.filter((pe) => pe.workoutDayId === seedDay.id);
+
+    for (const planned of plannedForThisDay) {
+      try {
+        await provider.savePlannedExercise({ ...planned, id: generateId(), workoutDayId: day.id });
+        seededAnything = true;
+      } catch (err) {
+        console.error(`Could not seed planned exercise "${planned.exerciseSlug}" for ${day.label}:`, err);
+      }
+    }
   }
 
   return { seeded: seededAnything };
